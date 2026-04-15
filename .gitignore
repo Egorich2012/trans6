@@ -1,12 +1,33 @@
+# Build directories
 build/
 cmake-build-*/
+
+# Generated ANTLR files
+generated/
+*.interp
+*.tokens
+
+# Compiled files
 *.o
+*.obj
+*.exe
 *.out
-*.log
+*.lib
+*.dll
 
-# ANTLR generated
-grammar/*.cpp
-grammar/*.h
-
-# VS Code
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Vcpkg (если используешь)
+vcpkg/
+
+# Executable твоего проекта
+example
+main

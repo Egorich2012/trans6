@@ -1,17 +1,13 @@
 #include <iostream>
 #include <fstream>
-#include <string>
 #include "antlr4-runtime.h"
 #include "ExampleLexer.h"
 #include "ExampleParser.h"
 #include "ExampleInterpreter.h"
 
-using namespace antlr4;
-
-// обработчик синтаксических ошибок
-class BailErrorListener : public BaseErrorListener {
+class BailErrorListener : public antlr4::BaseErrorListener {
 public:
-    void syntaxError(Recognizer *recognizer, Token *offendingSymbol,
+    void syntaxError(antlr4::Recognizer *recognizer, antlr4::Token *offendingSymbol,
                      size_t line, size_t charPositionInLine,
                      const std::string &msg, std::exception_ptr e) override {
         std::cerr << "Syntax Error at line " << line << ":" << charPositionInLine
@@ -21,7 +17,6 @@ public:
 };
 
 int main(int argc, const char* argv[]) {
-    // проверка аргументов
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <file_path>" << std::endl;
         return 1;
@@ -34,48 +29,27 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
-    std::string line;
-    int lineNum = 0;
-    int errors = 0;
+    try {
+        antlr4::ANTLRInputStream input(stream);
+        ExampleLexer lexer(&input);
 
-    while (std::getline(stream, line)) {
-        lineNum++;
+        BailErrorListener errorListener;
+        lexer.removeErrorListeners();
+        lexer.addErrorListener(&errorListener);
 
-        if (line.empty()) continue;
+        antlr4::CommonTokenStream tokens(&lexer);
+        ExampleParser parser(&tokens);
+        parser.removeErrorListeners();
+        parser.addErrorListener(&errorListener);
 
-        try {
-            ANTLRInputStream input(line);
-            ExampleLexer lexer(&input);
+        ExampleInterpreter visitor;
+        visitor.visit(parser.program());
 
-            BailErrorListener errorListener;
-            lexer.removeErrorListeners();
-            lexer.addErrorListener(&errorListener);
-
-            CommonTokenStream tokens(&lexer);
-            ExampleParser parser(&tokens);
-
-            parser.removeErrorListeners();
-            parser.addErrorListener(&errorListener);
-
-            // дерево
-            tree::ParseTree *tree = parser.program();
-
-            // НАШ visitor (но имя как у него)
-            ExampleInterpreter visitor;
-            visitor.visit(tree);
-
-        } catch (const std::exception& e) {
-            std::cerr << "Error at line " << lineNum << ": " << e.what() << std::endl;
-            errors++;
-        }
-    }
-
-    stream.close();
-
-    if (errors > 0) {
-        std::cerr << "Failed with " << errors << " error(s)" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
 
+    stream.close();
     return 0;
 }
