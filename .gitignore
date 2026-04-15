@@ -1,0 +1,12 @@
+build/
+cmake-build-*/
+*.o
+*.out
+*.log
+
+# ANTLR generated
+grammar/*.cpp
+grammar/*.h
+
+# VS Code
+.vscode/

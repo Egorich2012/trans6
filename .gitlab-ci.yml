@@ -1,0 +1,52 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  BUILD_DIR: "${CI_PROJECT_DIR}/build"
+  ANTLR_JAR: "/tmp/antlr-4.13.2-complete.jar"
+
+build:centos:
+  stage: build
+  tags: [centos]
+  before_script:
+    - yum install -y cmake3 gcc-c++ git java-17-openjdk-devel wget
+    - ln -s /usr/bin/cmake3 /usr/bin/cmake || true
+    - wget -q https://www.antlr.org/download/antlr-4.13.2-complete.jar -O ${ANTLR_JAR}
+    - export ANTLR_JAR_PATH=${ANTLR_JAR}
+  script:
+    - mkdir -p ${BUILD_DIR}
+    - cd ${BUILD_DIR}
+    - cmake -DCMAKE_BUILD_TYPE=Release ..
+    - cmake --build . --parallel $(nproc)
+  artifacts:
+    paths:
+      - ${BUILD_DIR}/main
+      - ${BUILD_DIR}/main_actions
+    expire_in: 1 week
+
+test:centos:
+  stage: test
+  tags: [centos]
+  needs: ["build:centos"]
+  script:
+    - chmod +x examples/run_tests.sh
+    - echo "=== Visitor ==="
+    - ./examples/run_tests.sh ${BUILD_DIR}/main
+    - echo "=== Actions ==="
+    - ./examples/run_tests.sh ${BUILD_DIR}/main_actions
+
+deploy:centos:
+  stage: deploy
+  tags: [centos]
+  needs:
+    - build:centos
+  script:
+    - mkdir -p ${BUILD_DIR}/deploy
+    - cp ${BUILD_DIR}/main ${BUILD_DIR}/deploy/translator
+    - cp ${BUILD_DIR}/main_actions ${BUILD_DIR}/deploy/translator_actions
+    - cp -r examples ${BUILD_DIR}/deploy/
+  artifacts:
+    paths:
+      - ${BUILD_DIR}/deploy/
