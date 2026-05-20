@@ -1,0 +1,3 @@
+x = "string";
+y = 5;
+do {} while (x < y);
