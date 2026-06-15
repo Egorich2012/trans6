@@ -1,3 +1,1 @@
-name = "test";
-value = 42;
-print "Value:", value, "for", name;
+do print(10, ++v, 20); while (0 > 1);
