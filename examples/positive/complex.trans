@@ -1,8 +1,1 @@
-result = 0;
-counter = 0;
-
-do {
-    result = result + counter * 2;
-    counter = counter + 1;
-    print "Step", counter, "result =", result;
-} while (counter < 10);
+do { print(++a, ++b); } while (a > b);
