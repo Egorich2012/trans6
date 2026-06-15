@@ -1,0 +1,62 @@
+#!/bin/bash
+
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <translator_executable>"
+    exit 1
+fi
+
+TRANSLATOR="$(cd "$(dirname "$1")" 2>/dev/null && pwd)/$(basename "$1")"
+if [ ! -f "$TRANSLATOR" ]; then
+    echo "Error: translator not found: $TRANSLATOR"
+    exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+PASS=0
+FAIL=0
+
+echo "Translator: $TRANSLATOR"
+echo "------------------------------------------"
+
+echo "Positive examples (positive/):"
+for file in "$PROJECT_ROOT/examples/positive"/*; do
+    [ -f "$file" ] || continue
+    "$TRANSLATOR" "$file" > /dev/null 2>&1
+    exit_code=$?
+    filename="$(basename "$file")"
+    if [ "$exit_code" -eq 0 ]; then
+        echo "  PASS  positive/$filename"
+        PASS=$((PASS + 1))
+    else
+        echo "  FAIL  positive/$filename (expected 0, got $exit_code)"
+        FAIL=$((FAIL + 1))
+    fi
+done
+
+echo ""
+
+echo "Negative examples (negative/):"
+for file in "$PROJECT_ROOT/examples/negative"/*; do
+    [ -f "$file" ] || continue
+    "$TRANSLATOR" "$file" > /dev/null 2>&1
+    exit_code=$?
+    filename="$(basename "$file")"
+    if [ "$exit_code" -ne 0 ]; then
+        echo "  PASS  negative/$filename"
+        PASS=$((PASS + 1))
+    else
+        echo "  FAIL  negative/$filename (expected !=0, got $exit_code)"
+        FAIL=$((FAIL + 1))
+    fi
+done
+
+echo ""
+echo "------------------------------------------"
+echo "OVERALL: $PASS passed / $FAIL failed / $((PASS + FAIL)) total"
+
+if [ "$FAIL" -gt 0 ]; then
+    exit 1
+fi
+exit 0
