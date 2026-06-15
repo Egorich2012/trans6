@@ -12,13 +12,22 @@ class Interpreter : public ExampleBaseVisitor {
 public:
     std::map<std::string, int> variables;
 
+    // Безопасное получение переменной (авто-инициализация в 0)
+    int getVar(const std::string& name) {
+        if (variables.find(name) == variables.end()) {
+            variables[name] = 0;
+        }
+        return variables[name];
+    }
+
     std::any visitProgram(ExampleParser::ProgramContext *ctx) override {
         visit(ctx->stmtList());
         return 0;
     }
 
     std::any visitStmtList(ExampleParser::StmtListContext *ctx) override {
-        for (auto s : ctx->stmt()) visit(s);
+        if (ctx->stmt()) visit(ctx->stmt());
+        if (ctx->stmtList()) visit(ctx->stmtList());
         return 0;
     }
 
@@ -61,8 +70,10 @@ public:
         std::vector<int> result;
         if (ctx->expr()) {
             result.push_back(std::any_cast<int>(visit(ctx->expr())));
-            auto tail = std::any_cast<std::vector<int>>(visit(ctx->argListTail()));
-            result.insert(result.end(), tail.begin(), tail.end());
+            if (ctx->argListTail()) {
+                auto tail = std::any_cast<std::vector<int>>(visit(ctx->argListTail()));
+                result.insert(result.end(), tail.begin(), tail.end());
+            }
         }
         return result;
     }
@@ -70,42 +81,34 @@ public:
     std::any visitExpr(ExampleParser::ExprContext *ctx) override {
         int left = std::any_cast<int>(visit(ctx->unary()));
         auto tail = ctx->exprTail();
-        if (tail->relop() == nullptr) return left;
-        
-        std::string op = tail->relop()->getText();
-        int right = std::any_cast<int>(visit(tail->unary()));
-        
-        if (op == "<") return (left < right) ? 1 : 0;
-        if (op == ">") return (left > right) ? 1 : 0;
-        return 0;
+        if (tail && tail->relop()) {
+            std::string op = tail->relop()->getText();
+            int right = std::any_cast<int>(visit(tail->unary()));
+            if (op == "<") return (left < right) ? 1 : 0;
+            if (op == ">") return (left > right) ? 1 : 0;
+        }
+        return left;
     }
 
     std::any visitUnary(ExampleParser::UnaryContext *ctx) override {
-        if (ctx->children.size() == 2 && ctx->primary() != nullptr) {
+        auto pCtx = ctx->primary();
+        // Проверяем наличие префиксного оператора через текст первого дочернего узла
+        if (ctx->children.size() == 2) {
             std::string op = ctx->children[0]->getText();
-            auto primaryCtx = ctx->primary();
-            if (primaryCtx->VAR()) {
-                std::string name = primaryCtx->VAR()->getText();
-                if (variables.find(name) == variables.end())
-                    throw std::runtime_error("Undefined variable: " + name);
-                if (op == "++") {
-                    variables[name]++;
-                } else if (op == "--") {
-                    variables[name]--;
-                }
+            if ((op == "++" || op == "--") && pCtx && pCtx->VAR()) {
+                std::string name = pCtx->VAR()->getText();
+                int val = getVar(name);
+                if (op == "++") variables[name] = val + 1;
+                else variables[name] = val - 1;
                 return variables[name];
             }
         }
-
-        return visit(ctx->primary());
+        return visit(pCtx);
     }
 
     std::any visitPrimary(ExampleParser::PrimaryContext *ctx) override {
         if (ctx->VAR()) {
-            std::string name = ctx->VAR()->getText();
-            if (variables.find(name) == variables.end())
-                throw std::runtime_error("Undefined variable: " + name);
-            return variables[name];
+            return getVar(ctx->VAR()->getText());
         }
         if (ctx->NUM()) {
             return std::stoi(ctx->NUM()->getText());
