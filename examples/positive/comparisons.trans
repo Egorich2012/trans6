@@ -1,13 +1,1 @@
-a = 10;
-b = 20;
-c = 0;
-
-do {
-    print a;
-    a = a + 1;
-} while (a < b);
-
-do {
-    print c;
-    c = c + 1;
-} while (c > 0);
+do print(1); while (0 > 1);
