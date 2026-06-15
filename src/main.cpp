@@ -1,55 +1,67 @@
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <sstream>
+#include <any>
 #include "antlr4-runtime.h"
 #include "ExampleLexer.h"
 #include "ExampleParser.h"
-#include "ExampleInterpreter.h"
+#include "Interpreter.h"
 
-class BailErrorListener : public antlr4::BaseErrorListener {
+class MyErrorListener : public antlr4::BaseErrorListener {
 public:
-    void syntaxError(antlr4::Recognizer *recognizer, antlr4::Token *offendingSymbol,
+    bool hasErrors = false;
+    void syntaxError(antlr4::Recognizer* recognizer,
+                     antlr4::Token* offendingSymbol,
                      size_t line, size_t charPositionInLine,
-                     const std::string &msg, std::exception_ptr e) override {
-        std::cerr << "Syntax Error at line " << line << ":" << charPositionInLine
-                  << " - " << msg << std::endl;
-        exit(1);
+                     const std::string& msg,
+                     std::exception_ptr e) override {
+        hasErrors = true;
+        std::cerr << "Syntax error at line " << line << ": " << msg << std::endl;
     }
 };
 
-int main(int argc, const char* argv[]) {
+int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <file_path>" << std::endl;
+        std::cerr << "Usage: main <file>" << std::endl;
         return 1;
     }
 
-    std::ifstream stream;
-    stream.open(argv[1]);
-    if (!stream.is_open()) {
-        std::cerr << "Error: Cannot open file " << argv[1] << std::endl;
+    std::ifstream file(argv[1]);
+    if (!file.is_open()) {
+        std::cerr << "Error: cannot open file " << argv[1] << std::endl;
         return 1;
     }
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+
+    antlr4::ANTLRInputStream input(buffer.str());
+    ExampleLexer lexer(&input);
+    antlr4::CommonTokenStream tokens(&lexer);
+    ExampleParser parser(&tokens);
+
+    MyErrorListener errListener;
+    lexer.removeErrorListeners();
+    parser.removeErrorListeners();
+    lexer.addErrorListener(&errListener);
+    parser.addErrorListener(&errListener);
+
+    auto* tree = parser.program();
+
+    // Жёсткая проверка ошибок ДО вычисления
+    if (errListener.hasErrors || parser.getNumberOfSyntaxErrors() > 0) {
+        return 1;
+    }
+
+    if (!tree) return 1;
 
     try {
-        antlr4::ANTLRInputStream input(stream);
-        ExampleLexer lexer(&input);
-
-        BailErrorListener errorListener;
-        lexer.removeErrorListeners();
-        lexer.addErrorListener(&errorListener);
-
-        antlr4::CommonTokenStream tokens(&lexer);
-        ExampleParser parser(&tokens);
-        parser.removeErrorListeners();
-        parser.addErrorListener(&errorListener);
-
-        ExampleInterpreter visitor;
-        visitor.visit(parser.program());
-
+        Interpreter interpreter;
+        interpreter.visit(tree);
     } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "Runtime error: " << e.what() << std::endl;
         return 1;
     }
 
-    stream.close();
     return 0;
 }
