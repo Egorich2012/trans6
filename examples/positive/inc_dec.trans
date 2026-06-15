@@ -1,5 +1,1 @@
-x = 5;
-print ++x;
-print x;
-print --x;
-print x;
+do { print(++x, --y); } while (0 > 1);
