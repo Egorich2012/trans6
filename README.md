@@ -13,3 +13,9 @@
 mkdir build && cd build
 cmake ..
 cmake --build .
+
+3. Автоматическая проверка всех тестов:
+    ```
+    chmod +x examples/run_tests.sh
+    ./examples/run_tests.sh ./build/Release/main.exe
+    ```
